@@ -1,0 +1,331 @@
+---
+title: "Data_Analytics_Assignment_W21013663"
+author: "Will Chan"
+format: html
+editor: visual
+---
+
+## 1. Install necessary packages
+
+```{r}
+
+#Command line if neccessary - remove the hashtag # before each install line to install packages only if neccessary.
+# install.packages("tidyverse")
+# install.packages("plotly")
+# install.packages("ggplot2")
+# install.packages("dplyr")
+
+library(tidyverse)
+library(plotly)
+library(ggplot2)
+library(dplyr)
+
+
+```
+
+## 2. Load in raw data sets and view
+
+This data is from the Official for National Statistics website. This data set originally came with 3 tables:
+
+-Table_1 shows data on E-cigarette use, by sex and age, England, 2014 to 2023
+
+-Table_2 shows data on E-cigarette use, by sex and cigarette smoking status, England, 2014 to 2023
+
+-Table_3 shows data on Confidence intervals for the adult e-cigarette estimates, England, 2014 to 2023
+
+For this study, I will mainly focus on Table_1 as the age is necessary.
+
+```{r}
+Table_1_raw_data <-read.csv("https://raw.githubusercontent.com/WillnWill/Data_analytics_ecigarette-analysis/main/ecigaretteuseinengland1.csv")
+
+View(Table_1_raw_data)
+
+```
+
+## 
+
+## 2. Clean and separate Table_1 to show daily users of all gender.
+
+```{r}
+#1.Save the dataset
+Table_1_DailyUsers_AllGender <- read.csv("https://raw.githubusercontent.com/WillnWill/Data_analytics_ecigarette-analysis/main/ecigaretteuseinengland1.csv")
+
+#2.Convert it to a tibbles
+Table_1_DailyUsers_AllGender <- as_tibble(Table_1_DailyUsers_AllGender) 
+
+
+#3.Remove collumn
+Table_1_DailyUsers_AllGender <- Table_1_DailyUsers_AllGender[, -c(3:14)]
+
+
+
+#4.Remove unneccesary cells
+Table_1_DailyUsers_AllGender <- Table_1_DailyUsers_AllGender[-c(1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,19,20,21,22,23,25,26,27,28,29,31,32,33,34,35,36,37,38,40,41,42,43,44,46,47,48,49,50,51,52,53,55,56,57,58,59,61,62,63,64,65,67,68,69,70,71,73,74,75,76,77), ]
+
+
+
+#5.Ensure headers are correctly positioned and labeled
+colnames(Table_1_DailyUsers_AllGender) <- c(
+  "Year",
+  "Percentage of users",
+  "All_16_to_24",
+  "All_25_to_34",
+  "All_35_to_49",
+  "All_50_to_59",
+  "All_60_and_over",
+  "All_16_and_over"
+)
+
+
+
+#6.Remove all NA's
+
+Table_1_DailyUsers_AllGender_long <- Table_1_DailyUsers_AllGender
+
+Table_1_DailyUsers_AllGender_long <- na.omit(Table_1_DailyUsers_AllGender_long)
+
+Table_1_DailyUsers_AllGender <- Table_1_DailyUsers_AllGender %>%
+  select(where(~ !all(is.na(.))))
+
+#7.Turn values numeric that start with All_
+Table_1_DailyUsers_AllGender <- Table_1_DailyUsers_AllGender %>%
+  mutate(across(starts_with("All_"), as.numeric))
+
+Table_1_DailyUsers_AllGender <- Table_1_DailyUsers_AllGender %>%
+  mutate(Year = as.numeric(Year))
+
+
+#8.Show structure of the Table_1 daily users.
+str(Table_1_DailyUsers_AllGender)
+
+#9. Display the first few rows of each dataset in the console
+head(Table_1_DailyUsers_AllGender)
+
+
+#10. View the cleansed data on another file
+View(Table_1_DailyUsers_AllGender)
+
+```
+
+## 3. Add a regression model for Table_1_DailyUsers_AllGender
+
+```{r}
+
+#1.Ensure that the year starts at 2014, not 0.
+Table_1_DailyUsers_AllGender$Year_starting_2014 <- Table_1_DailyUsers_AllGender$Year - 2014
+
+#2.Reshape the data to combine the 2 age groups.
+data_long <- Table_1_DailyUsers_AllGender %>%
+  pivot_longer(
+    cols = c( All_16_to_24, All_35_to_49 ),
+    names_to = "Age_Group",
+    values_to = "E_Cigarette_Use"
+  )
+
+
+#3.Apply the multiple linear regression model
+model <- lm( E_Cigarette_Use ~ Year_starting_2014 * Age_Group, data = data_long )
+
+summary(model)
+
+
+
+
+
+
+```
+
+## 
+
+## 5. Plot a regression model for Table_1_DailyUsers_AllGender to see e-cigarette use for both age groups.
+
+```{r}
+
+ggplot(data_long, aes(x = Year, y = E_Cigarette_Use, color = Age_Group)) +
+  geom_point(size = 2) +  
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1) +  
+  scale_color_manual(values = c("All_16_to_24" = "Darkgreen", "All_35_to_49" = "Darkorange")) +
+  labs(
+    title = "E-cigarette Use by Age Group (2014–2023)",
+    x = "Years",
+    y = "E-cigarette Use (%)",
+    color = "Age Group"
+  ) +
+  scale_x_continuous(breaks = seq(2014, 2023, 1))
+
+
+```
+
+## 
+
+## [See if gender affects the e-cigarette use.]{.underline}
+
+This script below will analyse if gender affects the e-cigarette use. For this analysis, we will be focusing on the younger people (age 16 to 24).
+
+## 1. Clean and separate Table_1 to have men e-cigarette use and female e-cigarette use in separate datasets.
+
+```{r}
+
+###FOR MALE GENDER DATASET CLEANSING *****************************************
+
+#1.Save the dataset
+Table_1_DailyUsers_MaleGender <- read.csv("https://raw.githubusercontent.com/WillnWill/Data_analytics_ecigarette-analysis/main/ecigaretteuseinengland1.csv")
+
+#2.Convert it to a tibbles
+Table_1_DailyUsers_MaleGender <- as_tibble(Table_1_DailyUsers_MaleGender) 
+
+#3.Remove collumn
+Table_1_DailyUsers_MaleGender <- Table_1_DailyUsers_MaleGender[, -c(9:21)]
+
+#4.Remove unneccesary cells
+Table_1_DailyUsers_MaleGender <- Table_1_DailyUsers_MaleGender[-c(1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,19,20,21,22,23,25,26,27,28,29,31,32,33,34,35,36,37,38,40,41,42,43,44,46,47,48,49,50,51,52,53,55,56,57,58,59,61,62,63,64,65,67,68,69,70,71,73,74,75,76,77), ]
+
+#5.Ensure headings are correctly positioned and labelled.
+colnames(Table_1_DailyUsers_MaleGender) <- c(
+  "Year",
+  "Percentage of users",
+  "All_16_to_24",
+  "All_25_to_34",
+  "All_35_to_49",
+  "All_50_to_59",
+  "All_60_and_over",
+  "All_16_and_over"
+)
+
+#6.Remove all NA's
+Table_1_DailyUsers_MaleGender <- Table_1_DailyUsers_MaleGender %>%
+  select(where(~ !all(is.na(.))))  
+
+Table_1_DailyUsers_MaleGender_long <- Table_1_DailyUsers_MaleGender
+
+Table_1_DailyUsers_MaleGender <- na.omit(Table_1_DailyUsers_MaleGender_long)
+
+
+#7.Turn values numeric
+Table_1_DailyUsers_MaleGender <- Table_1_DailyUsers_MaleGender %>%
+  mutate(across(starts_with("Men_"), as.numeric))
+
+Table_1_DailyUsers_MaleGender <- Table_1_DailyUsers_MaleGender %>%
+  mutate(Year = as.numeric(Year))
+
+#8.Show structure of the Table_1 daily users.
+str(Table_1_DailyUsers_MaleGender)
+
+#9. Display the first few rows of each dataset in the console
+head(Table_1_DailyUsers_MaleGender)
+
+#10. View the cleansed data on another file
+View(Table_1_DailyUsers_MaleGender)
+
+#END OF MALE GENDER DATASET CLEANSING **********************************
+
+
+
+
+
+#FOR FEMALE GENDER DATASET CLEANSING ******************************************
+
+#1.Save the dataset
+Table_1_DailyUsers_FemaleGender <- read.csv("https://raw.githubusercontent.com/WillnWill/Data_analytics_ecigarette-analysis/main/ecigaretteuseinengland1.csv")
+
+#2.Convert it to a tibbles
+Table_1_DailyUsers_FemaleGenderr <- as_tibble(Table_1_DailyUsers_FemaleGender) 
+
+
+#3.Remove collumn
+Table_1_DailyUsers_FemaleGender <- Table_1_DailyUsers_FemaleGender[, -c(3:8, 15:20)]
+
+
+#4.Remove unneccesary cells
+Table_1_DailyUsers_FemaleGender <- Table_1_DailyUsers_FemaleGender[-c(1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,19,20,21,22,23,25,26,27,28,29,31,32,33,34,35,36,37,38,40,41,42,43,44,46,47,48,49,50,51,52,53,55,56,57,58,59,61,62,63,64,65,67,68,69,70,71,73,74,75,76,77), ]
+
+
+#5.Ensure headings are correctly positioned and labelled.
+colnames(Table_1_DailyUsers_FemaleGender) <- c(
+  "Year",
+  "Percentage of users",
+  "All_16_to_24",
+  "All_25_to_34",
+  "All_35_to_49",
+  "All_50_to_59",
+  "All_60_and_over",
+  "All_16_and_over"
+)
+
+
+#6.Remove all NA's
+Table_1_DailyUsers_FemaleGender <- Table_1_DailyUsers_FemaleGender %>%
+  select(where(~ !all(is.na(.))))  
+
+Table_1_DailyUsers_FemaleGender_long <- Table_1_DailyUsers_FemaleGender
+
+Table_1_DailyUsers_FemaleGender <- na.omit(Table_1_DailyUsers_FemaleGender_long)
+
+
+#7.Turn values numeric
+Table_1_DailyUsers_FemaleGender <- Table_1_DailyUsers_FemaleGender %>%
+  mutate(across(starts_with("Women_"), as.numeric))
+
+Table_1_DailyUsers_FemaleGender <- Table_1_DailyUsers_FemaleGender %>%
+  mutate(Year = as.numeric(Year))
+
+#8.Show structure of the Table_1 daily users.
+str(Table_1_DailyUsers_FemaleGender)
+
+#9. Display the first few rows of each dataset in the console
+head(Table_1_DailyUsers_FemaleGender)
+
+#10. View the cleansed data on another file
+View(Table_1_DailyUsers_FemaleGender)
+
+#END OF WOMEN DATASET CLEANSING *****************************************
+```
+
+## 2. Combine Table_1_DailyUsers_MaleGender and Table_1_DailyUsers_FemaleGender, focusing on age group 16 to 24.
+
+```{r}
+
+#1. Add Gender column to each dataset
+Table_1_DailyUsers_MaleGender$Gender <- "Male"
+Table_1_DailyUsers_FemaleGender$Gender <- "Female"
+
+#2. Combine the two datasets into one
+Table_1_DailyUsers_MixedGender <- rbind(Table_1_DailyUsers_MaleGender, Table_1_DailyUsers_FemaleGender)
+
+#3. Ensure Gender is a factor (we need this for the comparison)
+Table_1_DailyUsers_MixedGender$Gender <- as.factor(Table_1_DailyUsers_MixedGender$Gender)
+
+
+#4.Convert it to a tibbles
+Table_1_DailyUsers_MixedGender <- as_tibble(Table_1_DailyUsers_MixedGender) 
+
+Table_1_DailyUsers_MixedGender$Year_starting_2014 <- Table_1_DailyUsers_MixedGender$Year - 2014
+
+#5. Change the dataset to a long format
+data_long <- Table_1_DailyUsers_MixedGender %>%
+  pivot_longer(
+    cols = starts_with("All_"),  # Columns for age groups
+    names_to = "Age_Group",
+    values_to = "E_Cigarette_Use"
+  )
+
+
+#6. Check the structure of the combined dataset.
+str(Table_1_DailyUsers_MixedGender)
+
+#7.View the combined dataset using converted tibbles dataset
+View(Table_1_DailyUsers_MixedGender)
+
+
+```
+
+## 3. Apply a regression model
+
+```{r}
+
+model2 <- lm(E_Cigarette_Use ~ Year_starting_2014 * Age_Group * Gender, data = data_long)
+
+summary(model2)
+```
+
+## 
